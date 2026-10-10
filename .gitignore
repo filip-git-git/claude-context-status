@@ -1,0 +1,21 @@
+# --- AIWG framework (deployed by `aiwg use sdlc`, regenerable) ---
+
+# Root bootstrap docs
+/CLAUDE.md
+/AIWG.md
+/WORKSPACE.md
+
+# Claude Code provider assets
+/.claude/agents/
+/.claude/commands/
+/.claude/hooks/
+/.claude/rules/
+/.claude/skills/
+/.claude/settings.json
+/.claude/settings.local.json
+
+# AIWG workspace
+/.aiwg/
+
+# Engine-generated types for the mod (rewritten on each load)
+/context-status/.claude-plugin/types/

@@ -1,0 +1,5 @@
+{
+  "name": "context-status",
+  "version": "0.1.0",
+  "description": "Status line that always shows the current model and context window usage"
+}
