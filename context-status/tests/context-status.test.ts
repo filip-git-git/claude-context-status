@@ -1,7 +1,8 @@
-// Covers the status text format (TC-1..TC-5) and the engine wiring (TC-6..TC-8).
+// Covers the indicator format (TC-1..TC-5) and the band drawn above the prompt (TC-6..TC-8).
 import { expect, test } from 'claude-code/testing'
+import type { Engine } from 'claude-code/testing'
 
-import { formatModelName, formatStatus, formatTokens } from '../hooks/format-status'
+import { describeStatus, formatModelName, formatStatus, formatTokens } from '../hooks/format-status'
 
 test('TC-1 model names', () => {
   expect(formatModelName('claude-opus-5-5')).toBe('Opus 5.5')
@@ -23,11 +24,15 @@ test('TC-3 token abbreviations', () => {
 
 test('TC-4 no measurement yet', () => {
   expect(formatStatus('claude-opus-5-5', { window: 200_000 })).toBe('Opus 5.5 · ctx — · 200k')
+  expect(describeStatus('x', { window: 200_000 }).level).toBe('unknown')
 })
 
-test('TC-5 warnings', () => {
-  expect(formatStatus('x', { tokens: 170_000, window: 200_000, percent: 85 })).toMatch(/^⚠ x/)
-  expect(formatStatus('x', { tokens: 192_000, window: 200_000, percent: 96 })).toMatch(/compact soon$/)
+test('TC-5 usage levels', () => {
+  expect(describeStatus('x', { tokens: 100_000, window: 200_000, percent: 50 }).level).toBe('ok')
+  expect(describeStatus('x', { tokens: 170_000, window: 200_000, percent: 85 }).level).toBe('warn')
+  const critical = describeStatus('x', { tokens: 192_000, window: 200_000, percent: 96 })
+  expect(critical.level).toBe('critical')
+  expect(critical.usage).toMatch(/compact soon$/)
 })
 
 const MEASURE = {
@@ -36,25 +41,49 @@ const MEASURE = {
   changed: ['context' as const],
 }
 
-test('TC-6 and TC-7 a measurement paints the line once', async ($, on) => {
-  const lines: (string | undefined)[] = []
+const BAND = {
+  hasSurvey: false,
+  isWorking: false,
+  maxRows: 10,
+  bodyColumns: 80,
+  scroll: { offset: 0, bodyRows: 10 },
+  view: {},
+}
+
+async function bandText($: Engine, props = BAND): Promise<string | undefined> {
+  const ui = await $.ui.mount({ plugin: 'context-status', surface: 'terminal', component: 'AbovePrompt', props })
+  const box = await ui.find({ key: 'context-status' })
+  await ui.unmount()
+
+  return box?.text
+}
+
+test('TC-6 a measurement draws the band with model and usage', async ($, on) => {
   on('session.model', () => ({ value: 'claude-opus-5-5' }))
   on('session.measure', (_$, e) => ({ changed: e.changed }))
-  on('ui.status', (_$, e) => (lines.push(e.text), { value: undefined }))
+  on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'Box', props: {}, children: [] }))
 
   await $.session.measure(MEASURE)
-  await $.session.measure(MEASURE)
 
-  expect(lines).toEqual(['Opus 5.5 · ctx ███░░░░░░░ 25% · 50k/200k'])
+  expect(await bandText($)).toBe('Opus 5.5 · ctx ███░░░░░░░ 25% · 50k/200k')
 })
 
-test('TC-8 a failed read leaves the session alone', async ($, on) => {
-  const lines: (string | undefined)[] = []
-  on('session.model', () => ({ deny: 'unavailable' }))
+test('TC-7 the band yields to a survey', async ($, on) => {
+  on('session.model', () => ({ value: 'claude-opus-5-5' }))
   on('session.measure', (_$, e) => ({ changed: e.changed }))
-  on('ui.status', (_$, e) => (lines.push(e.text), { value: undefined }))
+  on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'Box', props: {}, children: [] }))
 
   await $.session.measure(MEASURE)
 
-  expect(lines).toEqual([])
+  expect(await bandText($, { ...BAND, hasSurvey: true })).toBeUndefined()
+})
+
+test('TC-8 a failed read draws nothing and breaks nothing', async ($, on) => {
+  on('session.model', () => ({ deny: 'unavailable' }))
+  on('session.measure', (_$, e) => ({ changed: e.changed }))
+  on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'Box', props: {}, children: [] }))
+
+  await $.session.measure(MEASURE)
+
+  expect(await bandText($)).toBeUndefined()
 })

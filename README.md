@@ -1,6 +1,6 @@
 # claude-context-status
 
-A [Claude Code](https://code.claude.com) mod that keeps the current model and the context window usage always visible in the status line under the prompt.
+A [Claude Code](https://code.claude.com) mod that keeps the current model and the context window usage always visible in a line drawn just above the prompt.
 
 ```
 Opus 5.5 · ctx ████░░░░░░ 42% · 84k/200k
@@ -10,10 +10,12 @@ Opus 5.5 · ctx ████░░░░░░ 42% · 84k/200k
 
 - **Current model**: the main-loop model as `/model` shows it, with ids like `claude-opus-5-5` shortened to `Opus 5.5`.
 - **Context usage**: a 10-cell bar, the percentage, and tokens used out of the window size (`84k/200k`, `1M`).
-- **Warnings**: a `⚠` prefix at 80% and above, and `compact soon` at 95% and above.
+- **Colors by usage**: the bar is green below 80%, yellow from 80%, and red with a `compact soon` note from 95%. Colors follow your Claude Code theme.
 - **No extra API traffic**: it only reads figures the session already has.
 
 Before the model's first reply in a session, Claude Code has no usage figure yet, so the line shows `ctx — · 200k` until then.
+
+The line steps aside while Claude Code shows a survey in the same place.
 
 ## How it updates
 
@@ -31,7 +33,7 @@ In Claude Code (2.1.275 or later), run:
 /plugin install context-status --marketplace filip-git-git/claude-context-status
 ```
 
-Answer `y` to add the marketplace, then pick a scope (user scope loads it in every session). The status line appears right away.
+Answer `y` to add the marketplace, then pick a scope (user scope loads it in every session). The line appears right away.
 
 ### From a local clone
 
@@ -64,8 +66,9 @@ context-status/
 ├── .claude-plugin/plugin.json      manifest
 ├── hooks/
 │   ├── hooks.json                  points at the hooks module
-│   ├── register.ts                 event wiring and status line updates
+│   ├── register.tsx                event wiring and the band above the prompt
 │   └── format-status.ts            pure formatting of the line
+├── types/index.d.ts                state contract
 └── tests/context-status.test.ts
 ```
 
@@ -76,4 +79,4 @@ claude plugin validate context-status
 claude plugin test context-status
 ```
 
-Thresholds (80% / 95%) and the poll interval (5 s) are constants at the top of `format-status.ts` and `register.ts`.
+Thresholds (80% / 95%) and the poll interval (5 s) are constants at the top of `format-status.ts` and `register.tsx`.

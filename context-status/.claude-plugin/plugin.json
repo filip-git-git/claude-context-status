@@ -1,7 +1,10 @@
 {
   "name": "context-status",
-  "version": "0.1.0",
-  "description": "Status line that always shows the current model and context window usage",
-  "author": { "name": "filip-git-git" },
-  "repository": "https://github.com/filip-git-git/claude-context-status"
+  "version": "0.2.0",
+  "description": "Band above the prompt that always shows the current model and context window usage",
+  "author": {
+    "name": "filip-git-git"
+  },
+  "repository": "https://github.com/filip-git-git/claude-context-status",
+  "types": "./types/index.d.ts"
 }

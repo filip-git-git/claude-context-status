@@ -1,9 +1,13 @@
-// Pure formatting of the status line text: model name, context bar, token counts.
+// Pure formatting of the indicator: model name, context bar, token counts, usage level.
+import type { ContextFigures } from '../types'
 
-export type ContextFigures = {
-  tokens?: number
-  window: number
-  percent?: number
+export type StatusLevel = 'unknown' | 'ok' | 'warn' | 'critical'
+
+export type StatusParts = {
+  model: string
+  bar: string
+  usage: string
+  level: StatusLevel
 }
 
 const BAR_CELLS = 10
@@ -46,19 +50,38 @@ export function formatBar(percent: number): string {
   return '█'.repeat(filled) + '░'.repeat(BAR_CELLS - filled)
 }
 
-export function formatContext(context: ContextFigures): string {
-  const window = formatTokens(context.window)
-  if (context.percent === undefined) {
-    return `ctx — · ${window}`
+export function usageLevel(percent: number | undefined): StatusLevel {
+  if (percent === undefined) {
+    return 'unknown'
   }
-  const used = context.tokens === undefined ? '?' : formatTokens(context.tokens)
-  const critical = context.percent >= CRITICAL_PERCENT ? ' · compact soon' : ''
+  if (percent >= CRITICAL_PERCENT) {
+    return 'critical'
+  }
 
-  return `ctx ${formatBar(context.percent)} ${context.percent}% · ${used}/${window}${critical}`
+  return percent >= WARN_PERCENT ? 'warn' : 'ok'
 }
 
-export function formatStatus(model: string, context: ContextFigures): string {
-  const warning = context.percent !== undefined && context.percent >= WARN_PERCENT ? '⚠ ' : ''
+export function describeStatus(model: string, context: ContextFigures): StatusParts {
+  const window = formatTokens(context.window)
+  const level = usageLevel(context.percent)
+  if (context.percent === undefined) {
+    return { model: formatModelName(model), bar: '', usage: `— · ${window}`, level }
+  }
+  const used = context.tokens === undefined ? '?' : formatTokens(context.tokens)
+  const note = level === 'critical' ? ' · compact soon' : ''
 
-  return `${warning}${formatModelName(model)} · ${formatContext(context)}`
+  return {
+    model: formatModelName(model),
+    bar: formatBar(context.percent),
+    usage: `${context.percent}% · ${used}/${window}${note}`,
+    level,
+  }
+}
+
+// The indicator as one plain line, e.g. "Opus 5.5 · ctx ████░░░░░░ 42% · 84k/200k".
+export function formatStatus(model: string, context: ContextFigures): string {
+  const parts = describeStatus(model, context)
+  const bar = parts.bar === '' ? '' : `${parts.bar} `
+
+  return `${parts.model} · ctx ${bar}${parts.usage}`
 }
