@@ -1,14 +1,15 @@
 # claude-context-status
 
-A [Claude Code](https://code.claude.com) mod that keeps the current model and the context window usage always visible in a line drawn just above the prompt.
+A [Claude Code](https://code.claude.com) mod that keeps the current model, its effort level and the context window usage always visible in a line drawn just above the prompt.
 
 ```
-Opus 5.5 · ctx ████░░░░░░ 42% · 84k/200k
+Opus 5.5 · high · ctx ████░░░░░░ 42% · 84k/200k
 ```
 
 ## Features
 
 - **Current model**: the main-loop model as `/model` shows it, with ids like `claude-opus-5-5` shortened to `Opus 5.5`.
+- **Effort level**: `low` to `max`. Before the first turn it comes from your settings (`modelSettings.<model>.effortLevel`, then `effortLevel`); after each turn it is the effort the request was actually sent with. Models without an effort setting show none.
 - **Context usage**: a 10-cell bar, the percentage, and tokens used out of the window size (`84k/200k`, `1M`).
 - **Colors by usage**: the bar is green below 80%, yellow from 80%, and red with a `compact soon` note from 95%. Colors follow your Claude Code theme.
 - **No extra API traffic**: it only reads figures the session already has.
@@ -19,7 +20,7 @@ The line steps aside while Claude Code shows a survey in the same place.
 
 ## How it updates
 
-The line is refreshed after every turn, whenever Claude Code measures the session, and every 5 seconds. Mods get no event when you switch models with `/model`, so the 5-second check is what picks up the switch. The text is only redrawn when it actually changes.
+The line is refreshed after every turn, whenever Claude Code measures the session, and every 5 seconds. Mods get no event when you switch models with `/model` or change the effort, so the 5-second check is what picks up a switch between turns. The text is only redrawn when it actually changes.
 
 ## Requirements
 
@@ -67,6 +68,7 @@ context-status/
 ├── hooks/
 │   ├── hooks.json                  points at the hooks module
 │   ├── register.tsx                event wiring and the band above the prompt
+│   ├── effort-level.ts             which effort level to show
 │   └── format-status.ts            pure formatting of the line
 ├── types/index.d.ts                state contract
 └── tests/context-status.test.ts

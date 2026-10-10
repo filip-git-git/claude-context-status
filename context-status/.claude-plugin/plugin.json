@@ -1,7 +1,7 @@
 {
   "name": "context-status",
-  "version": "0.2.0",
-  "description": "Band above the prompt that always shows the current model and context window usage",
+  "version": "0.3.0",
+  "description": "Band above the prompt that always shows the current model, its effort level and context window usage",
   "author": {
     "name": "filip-git-git"
   },

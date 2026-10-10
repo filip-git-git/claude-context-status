@@ -1,10 +1,11 @@
-// Pure formatting of the indicator: model name, context bar, token counts, usage level.
+// Pure formatting of the indicator: model name, effort, context bar, token counts, usage level.
 import type { ContextFigures } from '../types'
 
 export type StatusLevel = 'unknown' | 'ok' | 'warn' | 'critical'
 
 export type StatusParts = {
   model: string
+  effort: string
   bar: string
   usage: string
   level: StatusLevel
@@ -61,27 +62,33 @@ export function usageLevel(percent: number | undefined): StatusLevel {
   return percent >= WARN_PERCENT ? 'warn' : 'ok'
 }
 
-export function describeStatus(model: string, context: ContextFigures): StatusParts {
+export function describeStatus(model: string, context: ContextFigures, effort?: string | number): StatusParts {
+  const head = { model: formatModelName(model), effort: effort === undefined ? '' : String(effort) }
   const window = formatTokens(context.window)
   const level = usageLevel(context.percent)
   if (context.percent === undefined) {
-    return { model: formatModelName(model), bar: '', usage: `— · ${window}`, level }
+    return { ...head, bar: '', usage: `— · ${window}`, level }
   }
   const used = context.tokens === undefined ? '?' : formatTokens(context.tokens)
   const note = level === 'critical' ? ' · compact soon' : ''
 
   return {
-    model: formatModelName(model),
+    ...head,
     bar: formatBar(context.percent),
     usage: `${context.percent}% · ${used}/${window}${note}`,
     level,
   }
 }
 
-// The indicator as one plain line, e.g. "Opus 5.5 · ctx ████░░░░░░ 42% · 84k/200k".
-export function formatStatus(model: string, context: ContextFigures): string {
-  const parts = describeStatus(model, context)
+// The indicator as one plain line, e.g. "Opus 5.5 · high · ctx ████░░░░░░ 42% · 84k/200k".
+export function formatStatus(model: string, context: ContextFigures, effort?: string | number): string {
+  const parts = describeStatus(model, context, effort)
   const bar = parts.bar === '' ? '' : `${parts.bar} `
 
-  return `${parts.model} · ctx ${bar}${parts.usage}`
+  return `${formatHead(parts)}ctx ${bar}${parts.usage}`
+}
+
+// "Opus 5.5 · high · ", or "Opus 5.5 · " for a model without effort.
+export function formatHead(parts: StatusParts): string {
+  return parts.effort === '' ? `${parts.model} · ` : `${parts.model} · ${parts.effort} · `
 }
