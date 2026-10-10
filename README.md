@@ -25,6 +25,16 @@ Claude Code with mod (function hooks) support. Developed and tested on 2.1.296.
 
 ## Installation
 
+In Claude Code (2.1.275 or later), run:
+
+```
+/plugin install context-status --marketplace filip-git-git/claude-context-status
+```
+
+Answer `y` to add the marketplace, then pick a scope (user scope loads it in every session). The status line appears right away.
+
+### From a local clone
+
 Clone the repository:
 
 ```bash

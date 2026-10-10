@@ -1,0 +1,12 @@
+{
+  "name": "claude-context-status",
+  "description": "Claude Code mod showing the current model and context window usage in the status line",
+  "owner": { "name": "filip-git-git" },
+  "plugins": [
+    {
+      "name": "context-status",
+      "source": "./context-status",
+      "description": "Status line that always shows the current model and context window usage"
+    }
+  ]
+}
