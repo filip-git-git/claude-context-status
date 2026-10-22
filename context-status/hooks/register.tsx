@@ -1,48 +1,66 @@
-// Draws a band above the prompt with the main-loop model, its effort and context window fill.
+// Draws a band above the prompt: model, effort, context window fill, and the 5-hour and weekly limits.
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import { effortFromSettings, pickEffort } from './effort-level'
 import type { EffortTracker } from './effort-level'
-import { describeStatus, formatHead } from './format-status'
-import type { StatusLevel } from './format-status'
+import { countdownMinute, pickLimits } from './rate-limits'
+import type { RateLimitReading } from './rate-limits'
+import { fitLine } from './status-line'
+import type { Tone } from './status-line'
 import type { ContextFigures, StatusSnapshot } from '../types'
 
-// /model and /effort have no mod event, so a cheap poll catches a switch between turns.
+// /model and /effort have no mod event, so a cheap poll catches a switch between turns;
+// it also moves the reset countdowns on, at most once a minute.
 const POLL_MS = 5000
 
-const LEVEL_COLOR: Record<StatusLevel, string> = {
+const TONE_COLOR: Record<Exclude<Tone, 'dim' | 'plain'>, string> = {
   unknown: 'subtle',
   ok: 'success',
   warn: 'warning',
   critical: 'error',
 }
 
+// What session.measure pushes; refresh reads the same from $.session.usage() otherwise.
+type Measured = { context: ContextFigures; rateLimits: readonly RateLimitReading[] }
+
 const snapshot = atom({ plugin: 'context-status', key: 'snapshot' } as const, null)
 
 function isSame(a: StatusSnapshot | null, b: StatusSnapshot): boolean {
-  return (
-    a !== null &&
-    a.model === b.model &&
-    a.effort === b.effort &&
-    a.context.tokens === b.context.tokens &&
-    a.context.window === b.context.window &&
-    a.context.percent === b.context.percent
-  )
+  return a !== null && JSON.stringify(a) === JSON.stringify(b)
 }
 
-// Reads model, effort and usage (all local, free calls); the band redraws only when a figure changed.
-async function refresh($: EngineInterface, tracker: EffortTracker, measured?: ContextFigures): Promise<void> {
+// Reads model, effort, usage and limits (all local, free calls); the band redraws only when a figure changed.
+async function refresh($: EngineInterface, tracker: EffortTracker, measured?: Measured): Promise<void> {
   try {
     const model = await $.session.model()
     const settings = await $.settings.read()
     const effort = pickEffort(tracker, effortFromSettings(settings, model), model)
-    const { tokens, window, percent } = measured ?? (await $.session.usage()).context
-    const next: StatusSnapshot = { model, effort, context: { tokens, window, percent } }
-    await update($, snapshot, previous => (isSame(previous, next) ? previous : next))
+    const { context, rateLimits } = measured ?? (await $.session.usage())
+    const limits = pickLimits(rateLimits)
+    const minute = countdownMinute(limits, await $.clock.now())
+    const next: StatusSnapshot = {
+      model,
+      effort,
+      context: { tokens: context.tokens, window: context.window, percent: context.percent },
+      limits,
+      minute,
+    }
+    const previous = await read($, snapshot)
+    if (!isSame(previous, next)) {
+      await update($, snapshot, () => next)
+    }
   } catch {
     // Keep the last known figures; a failed read must never break the session.
   }
+}
+
+function toneProps(tone: Tone): { dimColor?: boolean; color?: string } {
+  if (tone === 'dim') {
+    return { dimColor: true }
+  }
+
+  return tone === 'plain' ? {} : { color: TONE_COLOR[tone] }
 }
 
 export const register: Register = on => {
@@ -69,7 +87,7 @@ export const register: Register = on => {
   })
 
   on('session.measure', async ($, e, next) => {
-    await refresh($, tracker, e.context)
+    await refresh($, tracker, e)
 
     return next(e)
   })
@@ -87,20 +105,15 @@ export const register: Register = on => {
       return next(e)
     }
     const { Box, Text } = $.ui.resolve(e)
-    const parts = describeStatus(current.model, current.context, current.effort)
-    const color = LEVEL_COLOR[parts.level]
+    const pieces = fitLine(current, e.props.bodyColumns)
 
     return (
       <Box key="context-status">
-        <Text dimColor wrap="truncate">
-          {`${formatHead(parts)}ctx `}
-        </Text>
-        <Text key="bar" color={color} wrap="truncate">
-          {parts.bar === '' ? '' : `${parts.bar} `}
-        </Text>
-        <Text key="usage" color={parts.level === 'ok' ? undefined : color} wrap="truncate">
-          {parts.usage}
-        </Text>
+        {pieces.map((piece, index) => (
+          <Text key={`p${index}`} wrap="truncate" {...toneProps(piece.tone)}>
+            {piece.text}
+          </Text>
+        ))}
       </Box>
     )
   })

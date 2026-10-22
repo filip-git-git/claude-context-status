@@ -7,7 +7,14 @@ export type StatusParts = {
   model: string
   effort: string
   bar: string
+  // "42% · 84k/200k" in full; the pieces below are what a narrow line keeps.
   usage: string
+  // "42%", or "—" before the first measurement.
+  percentText: string
+  // "84k/200k", or just the window ("200k") before the first measurement.
+  tokensText: string
+  // " · compact soon" when critical, else ''.
+  note: string
   level: StatusLevel
 }
 
@@ -67,7 +74,7 @@ export function describeStatus(model: string, context: ContextFigures, effort?: 
   const window = formatTokens(context.window)
   const level = usageLevel(context.percent)
   if (context.percent === undefined) {
-    return { ...head, bar: '', usage: `— · ${window}`, level }
+    return { ...head, bar: '', usage: `— · ${window}`, percentText: '—', tokensText: window, note: '', level }
   }
   const used = context.tokens === undefined ? '?' : formatTokens(context.tokens)
   const note = level === 'critical' ? ' · compact soon' : ''
@@ -76,6 +83,9 @@ export function describeStatus(model: string, context: ContextFigures, effort?: 
     ...head,
     bar: formatBar(context.percent),
     usage: `${context.percent}% · ${used}/${window}${note}`,
+    percentText: `${context.percent}%`,
+    tokensText: `${used}/${window}`,
+    note,
     level,
   }
 }

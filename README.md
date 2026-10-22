@@ -1,9 +1,9 @@
 # claude-context-status
 
-A [Claude Code](https://code.claude.com) mod that keeps the current model, its effort level and the context window usage always visible in a line drawn just above the prompt.
+A [Claude Code](https://code.claude.com) mod that keeps the current model, its effort level, the context window usage and your 5-hour and weekly limits always visible in a line drawn just above the prompt.
 
 ```
-Opus 5.5 · high · ctx ████░░░░░░ 42% · 84k/200k
+Opus 5.5 · high · ctx ████░░░░░░ 42% · 420k/1M │ 5h █░░░░ 23% 2h14m │ 7d ██░░░ 41% 3d4h
 ```
 
 ## Features
@@ -11,16 +11,17 @@ Opus 5.5 · high · ctx ████░░░░░░ 42% · 84k/200k
 - **Current model**: the main-loop model as `/model` shows it, with ids like `claude-opus-5-5` shortened to `Opus 5.5`.
 - **Effort level**: `low` to `max`. Before the first turn it comes from your settings (`modelSettings.<model>.effortLevel`, then `effortLevel`); after each turn it is the effort the request was actually sent with. Models without an effort setting show none.
 - **Context usage**: a 10-cell bar, the percentage, and tokens used out of the window size (`84k/200k`, `1M`).
-- **Colors by usage**: the bar is green below 80%, yellow from 80%, and red with a `compact soon` note from 95%. Colors follow your Claude Code theme.
+- **5-hour and weekly limits**: how much of each window is used, with a 5-cell bar and the time until it resets (`45m`, `2h14m`, `3d4h`). Shown on a subscription once Claude Code has a reading; with an API key, or before the first reply, the segments are left out. After a window resets and before the next reading, it shows `—`.
+- **Colors by usage**: each bar is green below 80%, yellow from 80%, and red with a `compact soon` note from 95%. Colors follow your Claude Code theme.
 - **No extra API traffic**: it only reads figures the session already has.
 
 Before the model's first reply in a session, Claude Code has no usage figure yet, so the line shows `ctx — · 200k` until then.
 
-The line steps aside while Claude Code shows a survey in the same place.
+The line steps aside while Claude Code shows a survey in the same place. When the terminal is too narrow for the whole line, it drops the token counts first, then the reset countdowns, then the limit bars; the percentages stay.
 
 ## How it updates
 
-The line is refreshed after every turn, whenever Claude Code measures the session, and every 5 seconds. Mods get no event when you switch models with `/model` or change the effort, so the 5-second check is what picks up a switch between turns. The text is only redrawn when it actually changes.
+The line is refreshed after every turn, whenever Claude Code measures the session, and every 5 seconds. Mods get no event when you switch models with `/model` or change the effort, so the 5-second check is what picks up a switch between turns. The same check moves the reset countdowns on, redrawing at most once a minute. The text is only redrawn when it actually changes.
 
 ## Requirements
 
@@ -69,9 +70,11 @@ context-status/
 │   ├── hooks.json                  points at the hooks module
 │   ├── register.tsx                event wiring and the band above the prompt
 │   ├── effort-level.ts             which effort level to show
+│   ├── rate-limits.ts              5-hour and weekly windows, countdowns
+│   ├── status-line.ts              composes the line and fits it to the width
 │   └── format-status.ts            pure formatting of the line
 ├── types/index.d.ts                state contract
-└── tests/context-status.test.ts
+└── tests/                        *.test.ts and shared engine stubs
 ```
 
 Validate the mod and run the tests:

@@ -1,10 +1,10 @@
 // Covers the indicator format (TC-1..TC-5), the band above the prompt (TC-6..TC-8) and the effort (TC-9..TC-11).
 import { expect, test } from 'claude-code/testing'
-import type { Engine } from 'claude-code/testing'
 
 import { effortFromSettings, pickEffort } from '../hooks/effort-level'
 import type { EffortTracker } from '../hooks/effort-level'
 import { describeStatus, formatModelName, formatStatus, formatTokens } from '../hooks/format-status'
+import { BAND, MEASURE, SETTINGS, bandText, stubSession } from './engine-stubs'
 
 test('TC-1 model names', () => {
   expect(formatModelName('claude-opus-5-5')).toBe('Opus 5.5')
@@ -39,36 +39,8 @@ test('TC-5 usage levels', () => {
   expect(critical.usage).toMatch(/compact soon$/)
 })
 
-const MEASURE = {
-  context: { tokens: 50_000, window: 200_000, percent: 25 },
-  rateLimits: [],
-  changed: ['context' as const],
-}
-
-const SETTINGS = { effortLevel: 'medium', modelSettings: { 'claude-opus-5-5': { effortLevel: 'high' } } }
-
-const BAND = {
-  hasSurvey: false,
-  isWorking: false,
-  maxRows: 10,
-  bodyColumns: 80,
-  scroll: { offset: 0, bodyRows: 10 },
-  view: {},
-}
-
-async function bandText($: Engine, props = BAND): Promise<string | undefined> {
-  const ui = await $.ui.mount({ plugin: 'context-status', surface: 'terminal', component: 'AbovePrompt', props })
-  const box = await ui.find({ key: 'context-status' })
-  await ui.unmount()
-
-  return box?.text
-}
-
 test('TC-6 a measurement draws the band with model and usage', async ($, on) => {
-  on('session.model', () => ({ value: 'claude-opus-5-5' }))
-  on('session.measure', (_$, e) => ({ changed: e.changed }))
-  on('settings.read', () => ({ value: SETTINGS }))
-  on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'Box', props: {}, children: [] }))
+  stubSession(on)
 
   await $.session.measure(MEASURE)
 
@@ -76,10 +48,7 @@ test('TC-6 a measurement draws the band with model and usage', async ($, on) => 
 })
 
 test('TC-7 the band yields to a survey', async ($, on) => {
-  on('session.model', () => ({ value: 'claude-opus-5-5' }))
-  on('session.measure', (_$, e) => ({ changed: e.changed }))
-  on('settings.read', () => ({ value: SETTINGS }))
-  on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'Box', props: {}, children: [] }))
+  stubSession(on)
 
   await $.session.measure(MEASURE)
 
@@ -88,9 +57,7 @@ test('TC-7 the band yields to a survey', async ($, on) => {
 
 test('TC-8 a failed read draws nothing and breaks nothing', async ($, on) => {
   on('session.model', () => ({ deny: 'unavailable' }))
-  on('session.measure', (_$, e) => ({ changed: e.changed }))
-  on('settings.read', () => ({ value: SETTINGS }))
-  on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'Box', props: {}, children: [] }))
+  stubSession(on, { model: false })
 
   await $.session.measure(MEASURE)
 
@@ -114,11 +81,8 @@ test('TC-10 a turn effort holds until the settings or the model change', () => {
 })
 
 test('TC-11 the main loop request effort reaches the band', async ($, on) => {
-  on('session.model', () => ({ value: 'claude-opus-5-5' }))
-  on('session.measure', (_$, e) => ({ changed: e.changed }))
+  stubSession(on)
   on('session.usage', () => ({ value: { startedAt: 0, context: MEASURE.context, rateLimits: [] } }))
-  on('settings.read', () => ({ value: SETTINGS }))
-  on('ui.render', { component: 'AbovePrompt' }, () => ({ type: 'Box', props: {}, children: [] }))
   on('turn.step', async function* (_$, e) {
     return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: null }
   })
